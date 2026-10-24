@@ -23,9 +23,14 @@ public sealed class VersusScreen : Screen
     string _result = "";
     bool _debug;
 
-    public VersusScreen(GameContext ctx, ViewMode view) : base(ctx)
+    readonly CharacterDefinition _char1;
+    readonly CharacterDefinition _char2;
+
+    public VersusScreen(GameContext ctx, ViewMode view, CharacterDefinition char1, CharacterDefinition char2) : base(ctx)
     {
         _view = view;
+        _char1 = char1;
+        _char2 = char2;
         _combat.ShakeRequested += _cams.AddShake;
         StartRound();
     }
@@ -33,8 +38,8 @@ public sealed class VersusScreen : Screen
     void StartRound()
     {
         _combat.Reset();
-        _p1 = new Fighter(0, Roster.Grimm, new Vector3(-8f, 0f, 0f), Vector3.Right);
-        _p2 = new Fighter(1, Roster.Wren, new Vector3(8f, 0f, 0f), Vector3.Left);
+        _p1 = new Fighter(0, _char1, new Vector3(-8f, 0f, 0f), Vector3.Right, _char1.Color);
+        _p2 = new Fighter(1, _char2, new Vector3(8f, 0f, 0f), Vector3.Left, _char2.AltColor);
         _phase = Phase.Intro;
         _phaseTime = 0f;
         _result = "";
@@ -115,7 +120,7 @@ public sealed class VersusScreen : Screen
         bool k2 = _p2.State == FighterState.KO;
         if (!k1 && !k2) return;
 
-        _result = k1 && k2 ? "DRAW" : k1 ? _p2.Name + " WINS" : _p1.Name + " WINS";
+        _result = k1 && k2 ? "DRAW" : k1 ? "PLAYER 2 WINS" : "PLAYER 1 WINS";
         _phase = Phase.RoundOver;
         _phaseTime = 0f;
     }

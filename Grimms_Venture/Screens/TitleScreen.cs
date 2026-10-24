@@ -29,8 +29,8 @@ public sealed class TitleScreen : Screen
         {
             switch (_selected)
             {
-                case 0: Ctx.Screens.Set(new VersusScreen(Ctx, ViewMode.Shared)); return;
-                case 1: Ctx.Screens.Set(new VersusScreen(Ctx, ViewMode.SplitVertical)); return;
+                case 0: Ctx.Screens.Set(new CharacterSelectScreen(Ctx, ViewMode.Shared)); return;
+                case 1: Ctx.Screens.Set(new CharacterSelectScreen(Ctx, ViewMode.SplitVertical)); return;
                 default: Ctx.Game.Exit(); return;
             }
         }

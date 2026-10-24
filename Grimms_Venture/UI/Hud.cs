@@ -53,9 +53,10 @@ public sealed class Hud
         _ui.Rect(sb, left ? new Rectangle(kr.X, kr.Y, kw, kr.Height) : new Rectangle(kr.Right - kw, kr.Y, kw, kr.Height), kc);
 
         // nome
+        string label = $"P{f.PlayerIndex + 1} {f.Name}";
         int nameY = r.Y - px * 5 - (int)(10 * s);
-        int nameX = left ? r.X : r.Right - _ui.TextWidth(f.Name, px);
-        _ui.Text(sb, f.Name, nameX, nameY, px, f.Color);
+        int nameX = left ? r.X : r.Right - _ui.TextWidth(label, px);
+        _ui.Text(sb, label, nameX, nameY, px, f.Color);
 
         // combo
         if (f.ComboCount >= 2)

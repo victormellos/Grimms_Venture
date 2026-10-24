@@ -19,7 +19,7 @@ public sealed class Fighter
     public CharacterDefinition Character { get; }
     public FighterStats Stats => Character.Stats;
     public string Name => Character.Name;
-    public Color Color => Character.Color;
+    public Color Color { get; }
 
     public Vector3 Position;
     public Vector3 Forward { get; private set; }
@@ -51,10 +51,11 @@ public sealed class Fighter
     int _nextLight;
     bool _attackHit, _projectileSpawned;
 
-    public Fighter(int playerIndex, CharacterDefinition character, Vector3 spawn, Vector3 facing)
+    public Fighter(int playerIndex, CharacterDefinition character, Vector3 spawn, Vector3 facing, Color? color = null)
     {
         PlayerIndex = playerIndex;
         Character = character;
+        Color = color ?? character.Color;
         Position = spawn;
         Forward = SafeNormalize(new Vector3(facing.X, 0f, facing.Z), Vector3.Forward);
         Health = Stats.MaxHealth;
