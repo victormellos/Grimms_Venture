@@ -57,7 +57,7 @@ public sealed class Renderer3D : IDisposable
     {
         _gd.BlendState = BlendState.Opaque;
         _gd.DepthStencilState = DepthStencilState.Default;
-        _gd.RasterizerState = RasterizerState.CullCounterClockwise;
+        _gd.RasterizerState = RasterizerState.CullClockwise; 
         _gd.SamplerStates[0] = SamplerState.LinearWrap;
     }
 
