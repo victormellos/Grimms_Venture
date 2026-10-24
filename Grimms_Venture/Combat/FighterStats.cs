@@ -7,7 +7,7 @@ public sealed class FighterStats
     public float MaxKi = 100f;
 
     public float MoveSpeed = 9f;
-    public float VerticalSpeed = 7f;
+    public float VerticalSpeed = 7f;   // só usado por personagens que VOAM
     public float Acceleration = 10f;
     public float ImpulseDrag = 7f;
 
@@ -24,4 +24,24 @@ public sealed class FighterStats
     public float PassiveKiRegen = 2f;
 
     public float DamageMultiplier = 1f;
+
+    // ---------------- capacidade de movimento vertical ----------------
+    /// <summary>true = voa livre (input vertical move pra cima/baixo). false = pula.</summary>
+    public bool CanFly = true;
+
+    /// <summary>Gravidade dos não-voadores (m/s^2).</summary>
+    public float Gravity = 26f;
+
+    /// <summary>Impulso do pulo do chão. "Grandes pulos".</summary>
+    public float JumpSpeed = 13f;
+
+    /// <summary>Quantos pulos extras são permitidos no ar (pulo duplo = 1).</summary>
+    public int MaxAirJumps = 1;
+
+    /// <summary>Impulso do pulo aéreo.</summary>
+    public float AirJumpSpeed = 11f;
+
+    // ---------------- recursos ----------------
+    /// <summary>false = personagem não usa ki NUNCA (sem barra, sem custo, sem carregar).</summary>
+    public bool HasKi = true;
 }

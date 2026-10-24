@@ -9,6 +9,8 @@ public enum FighterState { Idle, Moving, Dashing, Attacking, Guarding, Charging,
 /// <summary>
 /// Lutador: máquina de estados + física simples. Sem dependência de renderização.
 /// Posição = pés. Sempre encara o oponente (lock-on estilo arena 3D).
+/// Personagens CanFly=false usam gravidade + pulo (com pulo duplo) em vez de voo.
+/// Personagens HasKi=false não têm barra de ki: sem custo, sem carregar, sem ki blast.
 /// </summary>
 public sealed class Fighter
 {
@@ -20,6 +22,7 @@ public sealed class Fighter
     public FighterStats Stats => Character.Stats;
     public string Name => Character.Name;
     public Color Color { get; }
+    public AttackSet Attacks => Character.Attacks;
 
     public Vector3 Position;
     public Vector3 Forward { get; private set; }
@@ -45,6 +48,9 @@ public sealed class Fighter
     public float ComboScale => MathF.Max(0.4f, MathF.Pow(0.92f, ComboCount));
 
     Vector3 _moveVel, _impulse, _desiredMove, _dashDir;
+    float _vy;                 // velocidade vertical dos NÃO-voadores (gravidade/pulo)
+    int _airJumps;             // pulos aéreos já usados (pulo duplo)
+    bool _prevJumpHeld;
     float _hitStunDuration;
     float _lightBuf, _heavyBuf, _kiBuf, _dashBuf;
     float _chainTimer, _comboTimer;
@@ -59,7 +65,7 @@ public sealed class Fighter
         Position = spawn;
         Forward = SafeNormalize(new Vector3(facing.X, 0f, facing.Z), Vector3.Forward);
         Health = Stats.MaxHealth;
-        Ki = Stats.MaxKi * 0.5f;
+        Ki = Stats.HasKi ? Stats.MaxKi * 0.5f : 0f;
     }
 
     // ------------------------------------------------------------------ update
@@ -109,6 +115,8 @@ public sealed class Fighter
         _kiBuf = input.KiBlastPressed ? BufferWindow : MathF.Max(0f, _kiBuf - dt);
         _dashBuf = input.DashPressed ? BufferWindow : MathF.Max(0f, _dashBuf - dt);
 
+        _prevJumpHeld = input.Vertical > 0.5f; // borda do pulo (não-voadores)
+
         _chainTimer = MathF.Max(0f, _chainTimer - dt);
         if (_chainTimer <= 0f && State != FighterState.Attacking) _nextLight = 0;
 
@@ -130,12 +138,13 @@ public sealed class Fighter
 
     void UpdateNeutral(float dt, in PlayerInput input, Fighter foe)
     {
-        AddKi(Stats.PassiveKiRegen * dt);
+        if (Stats.HasKi) AddKi(Stats.PassiveKiRegen * dt);
 
-        if (input.GuardHeld && Ki > 0f) { SetState(FighterState.Guarding); return; }
-        if (input.ChargeHeld && Ki < Stats.MaxKi) { SetState(FighterState.Charging); return; }
+        bool guardOk = !Stats.HasKi || Ki > 0f; // sem ki = guarda sempre disponível
+        if (input.GuardHeld && guardOk) { SetState(FighterState.Guarding); return; }
+        if (Stats.HasKi && input.ChargeHeld && Ki < Stats.MaxKi) { SetState(FighterState.Charging); return; }
         if (TryStartAttack()) return;
-        if (_dashBuf > 0f && Ki >= Stats.DashKiCost)
+        if (_dashBuf > 0f && (Stats.HasKi ? Ki >= Stats.DashKiCost : true))
         {
             _dashBuf = 0f;
             StartDash(input, foe);
@@ -146,15 +155,41 @@ public sealed class Fighter
         if (dir.LengthSquared() > 1f) dir.Normalize();
 
         float speed = Stats.MoveSpeed * (IsAirborne ? 1f : 0.85f);
-        _desiredMove = dir * speed + Vector3.Up * (input.Vertical * Stats.VerticalSpeed);
 
-        SetState(_desiredMove.LengthSquared() > 0.04f ? FighterState.Moving : FighterState.Idle);
+        if (Stats.CanFly)
+        {
+            // VOOOOR: movimento vertical direto
+            _desiredMove = dir * speed + Vector3.Up * (input.Vertical * Stats.VerticalSpeed);
+        }
+        else
+        {
+            // PULO: botão vertical (borda) = pulo grande; no ar = pulo duplo (limitado)
+            if (input.Vertical > 0.5f && !_prevJumpHeld)
+            {
+                if (!IsAirborne)
+                {
+                    _vy = Stats.JumpSpeed;
+                }
+                else if (_airJumps < Stats.MaxAirJumps)
+                {
+                    _airJumps++;
+                    _vy = Stats.AirJumpSpeed;
+                }
+            }
+            _desiredMove = dir * speed; // só horizontal; a vertical é física (_vy + gravidade)
+        }
+
+        SetState(_desiredMove.LengthSquared() > 0.04f || (!Stats.CanFly && IsAirborne)
+            ? FighterState.Moving : FighterState.Idle);
     }
 
     void StartDash(in PlayerInput input, Fighter foe)
     {
-        AddKi(-Stats.DashKiCost);
-        Vector3 stick = Forward * input.Move.Y + Right * input.Move.X + Vector3.Up * input.Vertical;
+        if (Stats.HasKi) AddKi(-Stats.DashKiCost); // sem ki = dash de graça
+
+        Vector3 stick = Forward * input.Move.Y + Right * input.Move.X;
+        if (Stats.CanFly) stick += Vector3.Up * input.Vertical; // não-voador: dash só no plano
+
         _dashDir = stick.LengthSquared() > 0.09f
             ? Vector3.Normalize(stick)
             : SafeNormalize(foe.HurtCenter - HurtCenter, Forward); // sem input: avança no oponente
@@ -180,12 +215,22 @@ public sealed class Fighter
 
     bool TryStartAttack()
     {
-        if (_heavyBuf > 0f) { _heavyBuf = 0f; BeginAttack(AttackLibrary.Heavy); return true; }
-        if (_lightBuf > 0f) { _lightBuf = 0f; BeginAttack(AttackLibrary.Light[_nextLight]); return true; }
-        if (_kiBuf > 0f && Ki >= AttackLibrary.KiBlast.KiCost)
+        if (_heavyBuf > 0f && Attacks.Heavy is { } heavy)
+        {
+            _heavyBuf = 0f;
+            BeginAttack(heavy);
+            return true;
+        }
+        if (_lightBuf > 0f && Attacks.Light.Length > 0)
+        {
+            _lightBuf = 0f;
+            BeginAttack(Attacks.Light[_nextLight % Attacks.Light.Length]);
+            return true;
+        }
+        if (_kiBuf > 0f && Attacks.KiBlast is { } ki && Ki >= ki.KiCost) // Grimm: KiBlast é null
         {
             _kiBuf = 0f;
-            BeginAttack(AttackLibrary.KiBlast);
+            BeginAttack(ki);
             return true;
         }
         return false;
@@ -233,7 +278,9 @@ public sealed class Fighter
     {
         if (a.Kind == AttackKind.Light)
         {
-            _nextLight = (a.LightIndex + 1) % 3;
+            _nextLight = Attacks.Light.Length > 0
+                ? (a.LightIndex + 1) % Attacks.Light.Length
+                : 0;
             _chainTimer = ChainWindow;
         }
         else
@@ -246,8 +293,8 @@ public sealed class Fighter
 
     void UpdateGuard(float dt, in PlayerInput input)
     {
-        AddKi(-Stats.GuardKiDrain * dt);
-        if (!input.GuardHeld || Ki <= 0f) SetState(FighterState.Idle);
+        if (Stats.HasKi) AddKi(-Stats.GuardKiDrain * dt); // Grimm: guarda não drena nada
+        if (!input.GuardHeld || (Stats.HasKi && Ki <= 0f)) SetState(FighterState.Idle);
     }
 
     void UpdateCharge(float dt, in PlayerInput input)
@@ -263,7 +310,17 @@ public sealed class Fighter
         float k = 1f - MathF.Exp(-Stats.Acceleration * dt);
         _moveVel = Vector3.Lerp(_moveVel, _desiredMove, k);
         _impulse *= MathF.Exp(-Stats.ImpulseDrag * dt);
-        Position += (_moveVel + _impulse) * dt;
+
+        if (Stats.CanFly)
+        {
+            Position += (_moveVel + _impulse) * dt;
+        }
+        else
+        {
+            // NÃO-voador: velocidade vertical própria com gravidade
+            _vy -= Stats.Gravity * dt;
+            Position += (_moveVel + _impulse + Vector3.Up * _vy) * dt;
+        }
 
         float r = MathF.Sqrt(Position.X * Position.X + Position.Z * Position.Z);
         if (r > GameConstants.ArenaRadius)
@@ -276,6 +333,11 @@ public sealed class Fighter
         if (Position.Y <= GameConstants.GroundY)
         {
             Position.Y = GameConstants.GroundY;
+            if (!Stats.CanFly)
+            {
+                _vy = MathF.Max(0f, _vy); // aterrissou
+                _airJumps = 0;            // recarrega o pulo duplo
+            }
             if (_impulse.Y < 0f) _impulse.Y = 0f;
             if (_moveVel.Y < 0f) _moveVel.Y = 0f;
         }
@@ -307,10 +369,11 @@ public sealed class Fighter
     {
         Health = MathF.Max(1f, Health - chipDamage); // dano de guarda não mata
         _impulse = knockback;
-        AddKi(-kiDrain);
+        AddKi(-kiDrain); // sem ki = no-op
         HitFlash = 0.05f;
 
-        if (Ki <= 0f) // guard break
+        // guard break só existe pra quem TEM ki (Grimm: defesa comum, nunca quebra)
+        if (Stats.HasKi && Ki <= 0f)
         {
             _hitStunDuration = 0.8f;
             SetState(FighterState.HitStun, force: true);
@@ -323,7 +386,11 @@ public sealed class Fighter
         _comboTimer = hitStun + 0.6f;
     }
 
-    public void AddKi(float amount) => Ki = MathHelper.Clamp(Ki + amount, 0f, Stats.MaxKi);
+    public void AddKi(float amount)
+    {
+        if (!Stats.HasKi) return; // Grimm não tem ki: nenhuma fonte gasta/recupera
+        Ki = MathHelper.Clamp(Ki + amount, 0f, Stats.MaxKi);
+    }
 
     // ------------------------------------------------------------------ helpers
 

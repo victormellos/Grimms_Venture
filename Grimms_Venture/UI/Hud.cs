@@ -37,20 +37,25 @@ public sealed class Hud
         Color hc = pct > 0.5f ? new Color(80, 220, 90) : pct > 0.25f ? new Color(240, 200, 60) : new Color(230, 70, 60);
         _ui.Rect(sb, left ? new Rectangle(r.X, r.Y, w, r.Height) : new Rectangle(r.Right - w, r.Y, w, r.Height), hc);
 
-        // ki
-        int kiH = Math.Max(5, (int)(10 * s));
-        int kiW = (int)(r.Width * 0.6f);
-        int kiY = r.Bottom + (int)(8 * s);
-        Rectangle kr = left ? new Rectangle(r.X, kiY, kiW, kiH) : new Rectangle(r.Right - kiW, kiY, kiW, kiH);
-        Rectangle kf = kr;
-        kf.Inflate(2, 2);
-        _ui.Rect(sb, kf, Color.Black);
-        _ui.Rect(sb, kr, new Color(30, 40, 60));
+        // ki (só para quem TEM ki — Grimm não tem barra)
+        int comboY = r.Bottom;
+        if (f.Stats.HasKi)
+        {
+            int kiH = Math.Max(5, (int)(10 * s));
+            int kiW = (int)(r.Width * 0.6f);
+            int kiY = r.Bottom + (int)(8 * s);
+            Rectangle kr = left ? new Rectangle(r.X, kiY, kiW, kiH) : new Rectangle(r.Right - kiW, kiY, kiW, kiH);
+            Rectangle kf = kr;
+            kf.Inflate(2, 2);
+            _ui.Rect(sb, kf, Color.Black);
+            _ui.Rect(sb, kr, new Color(30, 40, 60));
 
-        float kp = MathHelper.Clamp(f.Ki / f.Stats.MaxKi, 0f, 1f);
-        int kw = (int)(kiW * kp);
-        Color kc = kp >= 0.999f ? new Color(255, 220, 90) : new Color(70, 190, 255);
-        _ui.Rect(sb, left ? new Rectangle(kr.X, kr.Y, kw, kr.Height) : new Rectangle(kr.Right - kw, kr.Y, kw, kr.Height), kc);
+            float kp = MathHelper.Clamp(f.Ki / f.Stats.MaxKi, 0f, 1f);
+            int kw = (int)(kiW * kp);
+            Color kc = kp >= 0.999f ? new Color(255, 220, 90) : new Color(70, 190, 255);
+            _ui.Rect(sb, left ? new Rectangle(kr.X, kr.Y, kw, kr.Height) : new Rectangle(kr.Right - kw, kr.Y, kw, kr.Height), kc);
+            comboY = kr.Bottom;
+        }
 
         // nome
         string label = $"P{f.PlayerIndex + 1} {f.Name}";
@@ -64,7 +69,7 @@ public sealed class Hud
             string t = $"{f.ComboCount} HITS";
             int cpx = px + 1;
             int cx = left ? r.X : r.Right - _ui.TextWidth(t, cpx);
-            _ui.Text(sb, t, cx, kr.Bottom + (int)(14 * s), cpx, new Color(255, 160, 40));
+            _ui.Text(sb, t, cx, comboY + (int)(14 * s), cpx, new Color(255, 160, 40));
         }
     }
 }

@@ -33,6 +33,15 @@ public sealed class AttackData
     public float Total => Startup + Active + Recovery;
 }
 
+/// <summary>Conjunto de golpes de um personagem. null = o personagem não tem esse golpe.</summary>
+public sealed class AttackSet
+{
+    public AttackData[] Light { get; init; } = AttackLibrary.Light;
+    public AttackData? Heavy { get; init; } = AttackLibrary.Heavy;
+    public AttackData? KiBlast { get; init; } = AttackLibrary.KiBlast;
+}
+
+/// <summary>Kit padrão do protótipo (base para personagens "normais").</summary>
 public static class AttackLibrary
 {
     public static readonly AttackData[] Light =
@@ -61,5 +70,31 @@ public static class AttackLibrary
         Damage = 70f, HitStun = 0.50f, Knockback = 10f,
         KiCost = 15f, KiGain = 2f, HitStop = 0.06f, Shake = 0.35f,
         ProjectileSpeed = 32f, ProjectileRadius = 0.5f
+    };
+}
+
+/// <summary>
+/// Kit do GRIMM: só punhos e chute. Mais fortes E mais rápidos que o padrão.
+/// KiGain = 0 porque ele nem tem ki (o AddKi já ignora, mas deixa explícito).
+/// </summary>
+public static class GrimmMoveset
+{
+    public static readonly AttackData[] Punches =
+    {
+        new() { Name = "Jab",   Kind = AttackKind.Light, LightIndex = 0, Startup = 0.06f, Active = 0.07f, Recovery = 0.10f,
+                Damage = 45f, HitStun = 0.40f, Knockback = 5f, LungeSpeed = 15f, KiGain = 0f, HitStop = 0.05f, Shake = 0.15f },
+        new() { Name = "Straight", Kind = AttackKind.Light, LightIndex = 1, Startup = 0.06f, Active = 0.07f, Recovery = 0.12f,
+                Damage = 52f, HitStun = 0.40f, Knockback = 6f, LungeSpeed = 15f, KiGain = 0f, HitStop = 0.05f, Shake = 0.18f },
+        new() { Name = "Cross", Kind = AttackKind.Light, LightIndex = 2, Startup = 0.08f, Active = 0.08f, Recovery = 0.22f,
+                Damage = 75f, HitStun = 0.45f, Knockback = 16f, LungeSpeed = 15f, KiGain = 0f, HitStop = 0.09f, Shake = 0.35f }
+    };
+
+    public static readonly AttackData Kick = new()
+    {
+        Name = "Kick", Kind = AttackKind.Heavy,
+        Startup = 0.20f, Active = 0.12f, Recovery = 0.28f,
+        Damage = 140f, Range = 2.0f, Radius = 1.1f,
+        HitStun = 0.65f, Knockback = 24f, LungeSpeed = 17f,
+        KiGain = 0f, HitStop = 0.14f, Shake = 0.60f
     };
 }
