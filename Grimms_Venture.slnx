@@ -2,4 +2,5 @@
   <Folder Name="/Grimms_Venture/">
     <Project Path="Grimms_Venture/Grimms_Venture.csproj" />
   </Folder>
+  <Project Path="GrimmsVenture.Content.Pipeline/GrimmsVenture.Content.Pipeline.csproj" />
 </Solution>
