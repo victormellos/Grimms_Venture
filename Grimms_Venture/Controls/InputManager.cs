@@ -4,23 +4,17 @@ using Microsoft.Xna.Framework.Input;
 namespace GrimmsVenture.Controls;
 
 /// <summary>
-/// Cada slot (P1/P2) usa o gamepad correspondente se estiver conectado;
-/// caso contrário cai para o esquema de teclado do slot.
+/// Sistema de "join" local: os slots P1/P2 começam vazios.
+/// P1 é o primeiro dispositivo (teclado ou gamepad) a apertar QUALQUER botão;
+/// P2 entra com START no gamepad (ou tecla do mapa P2 no teclado).
+/// Dispositivos: 0 = KEYBOARD P1 | 1 = KEYBOARD P2 | 2..5 = GAMEPAD 1..4.
 /// Também expõe inputs globais (menus, pausa, troca de câmera, debug).
 /// </summary>
 public sealed class InputManager
 {
-    readonly GamepadInputSource[] _gamepads =
-    {
-        new(PlayerIndex.One),
-        new(PlayerIndex.Two)
-    };
-
-    readonly KeyboardInputSource[] _keyboards =
-    {
-        new(KeyboardMap.Player1(), "KEYBOARD P1"),
-        new(KeyboardMap.Player2(), "KEYBOARD P2")
-    };
+    readonly IInputSource[] _devices;
+    readonly PlayerInput[] _deviceInput = new PlayerInput[6];
+    readonly int[] _claimed = { -1, -1 }; // dispositivo de cada slot; -1 = ninguém entrou
 
     KeyboardState _kbPrev, _kbCur;
     readonly GamePadState[] _padPrev = new GamePadState[4];
@@ -39,15 +33,61 @@ public sealed class InputManager
     public bool DebugPressed { get; private set; }
     public bool FullscreenPressed { get; private set; }
 
+    public InputManager()
+    {
+        _devices = new IInputSource[]
+        {
+            new KeyboardInputSource(KeyboardMap.Player1(), "KEYBOARD P1"),
+            new KeyboardInputSource(KeyboardMap.Player2(), "KEYBOARD P2"),
+            new GamepadInputSource(PlayerIndex.One),
+            new GamepadInputSource(PlayerIndex.Two),
+            new GamepadInputSource(PlayerIndex.Three),
+            new GamepadInputSource(PlayerIndex.Four)
+        };
+    }
+
+    public bool SlotJoined(int slot) => _claimed[slot] >= 0;
+
+    /// <summary>P1 (slot 0) entra com qualquer botão; P2 (slot 1) entra com START.</summary>
+    public bool TryJoin(int slot)
+    {
+        for (int d = 0; d < _devices.Length; d++)
+        {
+            if (d == _claimed[0] || d == _claimed[1]) continue; // dispositivo já ocupado
+            IInputSource dev = _devices[d];
+            if (!dev.IsAvailable) continue;
+            if (slot == 0 ? !dev.AnyPressed : !dev.JoinPressed) continue;
+
+            _claimed[slot] = d;
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>Volta ao estado "ninguém entrou" (ao voltar ao menu principal).</summary>
+    public void ResetJoins()
+    {
+        _claimed[0] = _claimed[1] = -1;
+    }
+
     public void Update()
     {
+        for (int d = 0; d < _devices.Length; d++)
+            _deviceInput[d] = _devices[d].Poll();
+
         for (int i = 0; i < 2; i++)
         {
-            PlayerInput pad = _gamepads[i].Poll();
-            PlayerInput key = _keyboards[i].Poll();
-            bool usePad = _gamepads[i].IsAvailable;
-            Players[i] = usePad ? pad : key;
-            DeviceNames[i] = usePad ? _gamepads[i].Name : _keyboards[i].Name;
+            int d = _claimed[i];
+            if (d >= 0)
+            {
+                Players[i] = _deviceInput[d];
+                DeviceNames[i] = _devices[d].Name;
+            }
+            else
+            {
+                Players[i] = default;
+                DeviceNames[i] = "";
+            }
         }
 
         UpdateGlobal();

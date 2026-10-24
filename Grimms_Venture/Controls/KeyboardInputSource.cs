@@ -41,6 +41,8 @@ public sealed class KeyboardInputSource : IInputSource
 
     public string Name => _name;
     public bool IsAvailable => true;
+    public bool AnyPressed { get; private set; }
+    public bool JoinPressed => AnyPressed; // no teclado não existe START: qualquer tecla do mapa entra
 
     bool Pressed(Keys k) => _cur.IsKeyDown(k) && _prev.IsKeyUp(k);
     bool Down(Keys k) => _cur.IsKeyDown(k);
@@ -49,6 +51,12 @@ public sealed class KeyboardInputSource : IInputSource
     {
         _prev = _cur;
         _cur = Keyboard.GetState();
+
+        AnyPressed = Pressed(_map.Left) || Pressed(_map.Right)
+                  || Pressed(_map.Forward) || Pressed(_map.Back)
+                  || Pressed(_map.Up) || Pressed(_map.Down)
+                  || Pressed(_map.Light) || Pressed(_map.Heavy) || Pressed(_map.KiBlast)
+                  || Pressed(_map.Dash) || Pressed(_map.Guard) || Pressed(_map.Charge);
 
         Vector2 move = Vector2.Zero;
         if (Down(_map.Left)) move.X -= 1f;

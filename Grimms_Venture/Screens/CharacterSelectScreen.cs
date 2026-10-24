@@ -7,7 +7,8 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace GrimmsVenture.Screens;
 
-/// <summary>Seleção de personagem 1v1: metade esquerda = P1, direita = P2, com preview 3D girando.</summary>
+/// <summary>Seleção de personagem 1v1: cada jogador "entra" apertando um botão
+/// (P1: qualquer botão | P2: START) e depois escolhe/confirma o personagem.</summary>
 public sealed class CharacterSelectScreen : Screen
 {
     sealed class Slot
@@ -59,6 +60,15 @@ public sealed class CharacterSelectScreen : Screen
         for (int i = 0; i < 2; i++)
         {
             Slot s = _slots[i];
+
+            if (!input.SlotJoined(i))
+            {
+                if (input.TryJoin(i)) consumed = true; // entrou agora; ignora o resto do frame
+                s.PrevMoveX = 0f;
+                s.Preview.Update(dt, none, s.Dummy, _combat); // anima o idle mesmo sem jogador
+                continue;
+            }
+
             PlayerInput p = input.Players[i];
 
             if (_startTimer < 0f)
@@ -165,13 +175,25 @@ public sealed class CharacterSelectScreen : Screen
             Color col = i == 0 ? ch.Color : ch.AltColor;
             int x0 = i * (w / 2);
             int cx = x0 + w / 4;
-            string dev = Ctx.Input.DeviceNames[i];
+            bool joined = Ctx.Input.SlotJoined(i);
+            int panelY = (int)(h * 0.64f);
 
             ui.TextCentered(sb, $"PLAYER {i + 1}", cx, px * 8 + big * 8, px * 2, col);
-            ui.TextCentered(sb, dev, cx, px * 8 + big * 8 + px * 14, small, new Color(170, 170, 190));
-
-            int panelY = (int)(h * 0.64f);
             ui.Rect(sb, new Rectangle(x0 + margin, panelY, w / 2 - margin * 2, (int)(h * 0.27f)), Color.Black * 0.5f);
+
+            if (!joined)
+            {
+                ui.TextCentered(sb,
+                    i == 0 ? "PRESS ANY BUTTON TO JOIN" : "PRESS START TO JOIN",
+                    cx, panelY + px * 3, px * 2, new Color(255, 220, 100));
+                ui.TextCentered(sb,
+                    i == 0 ? "KEYBOARD OR GAMEPAD" : "PAD: START  |  KEYBOARD: ANY P2 KEY",
+                    cx, panelY + px * 3 + px * 14, small, new Color(170, 170, 190));
+                continue;
+            }
+
+            string dev = Ctx.Input.DeviceNames[i];
+            ui.TextCentered(sb, dev, cx, px * 8 + big * 8 + px * 14, small, new Color(170, 170, 190));
 
             string name = Roster.All.Count > 1 ? $"< {ch.Name} >" : ch.Name;
             ui.TextCentered(sb, name, cx, panelY + px * 3, big, col);

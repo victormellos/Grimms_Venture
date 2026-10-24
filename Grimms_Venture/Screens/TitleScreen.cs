@@ -13,7 +13,7 @@ public sealed class TitleScreen : Screen
     int _selected;
     float _angle;
 
-    public TitleScreen(GameContext ctx) : base(ctx) { }
+    public TitleScreen(GameContext ctx) : base(ctx) { Ctx.Input.ResetJoins(); }
 
     public override void Update(GameTime gt)
     {
