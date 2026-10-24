@@ -13,3 +13,7 @@
 
 #---------------------------------- Content ---------------------------------#
 
+#begin Models/Grimm.fbx
+/importer:FbxImporter
+/processor:ModelProcessor
+/build:Models/Grimm.fbx
