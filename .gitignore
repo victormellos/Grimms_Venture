@@ -1,0 +1,27 @@
+# build
+bin/
+obj/
+*.dll
+*.pdb
+
+# IDE / editor
+.vs/
+.idea/
+*.user
+*.suo
+*.swp
+
+# MonoGame content builder
+*.mgstats
+
+# lixo de scripts / backups / logs
+*.sh
+*.bak
+*.orig
+*_output.txt
+*.log
+*.zip
+
+# sistema
+.DS_Store
+Thumbs.db
