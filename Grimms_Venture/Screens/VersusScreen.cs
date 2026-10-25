@@ -25,6 +25,8 @@ public sealed class VersusScreen : Screen
 
     readonly CharacterDefinition _char1;
     readonly CharacterDefinition _char2;
+    SkinnedFighterRenderer? _skin1;   // modelo 3D do P1 (null = boneco procedural)
+    SkinnedFighterRenderer? _skin2;   // modelo 3D do P2
 
     public VersusScreen(GameContext ctx, ViewMode view, CharacterDefinition char1, CharacterDefinition char2) : base(ctx)
     {
@@ -32,8 +34,16 @@ public sealed class VersusScreen : Screen
         _char1 = char1;
         _char2 = char2;
         _combat.ShakeRequested += _cams.AddShake;
+        _skin1 = LoadSkin(_char1);
+        _skin2 = LoadSkin(_char2);
         StartRound();
     }
+
+    // Por enquanto só o GRIMM tem FBX; quem não tem, cai no boneco procedural.
+    SkinnedFighterRenderer? LoadSkin(CharacterDefinition c)
+        => c.Name == "GRIMM"
+            ? new SkinnedFighterRenderer(Ctx.Game.Content, "Models/Grimm")
+            : null;
 
     void StartRound()
     {
@@ -94,6 +104,9 @@ public sealed class VersusScreen : Screen
         }
 
         _cams.Update(dt, _p1, _p2);
+
+        _skin1?.Update(gt, _p1);
+        _skin2?.Update(gt, _p2);
     }
 
     void Simulate(float dt, bool allowInput)
@@ -163,8 +176,8 @@ public sealed class VersusScreen : Screen
 
         r.BeginScene(cam, vp.AspectRatio);
         Ctx.Arena.DrawOpaque(r);
-        FighterRenderer.DrawBody(r, _p1);
-        FighterRenderer.DrawBody(r, _p2);
+        DrawFighter(vp, cam, _skin1, _p1);
+        DrawFighter(vp, cam, _skin2, _p2);
 
         r.BeginTransparent();
         FighterRenderer.DrawEffects(r, _p1, _debug);
@@ -172,6 +185,15 @@ public sealed class VersusScreen : Screen
         FighterRenderer.DrawBlasts(r, _combat.Blasts);
         _combat.Particles.Draw(r);
         r.EndTransparent();
+    }
+
+    // modelo 3D animado se o personagem tiver; senão cai no boneco procedural
+    void DrawFighter(Viewport vp, Camera cam, SkinnedFighterRenderer? skin, Fighter f)
+    {
+        if (skin is { Available: true })
+            skin.Draw(cam, vp.AspectRatio);
+        else
+            FighterRenderer.DrawBody(Ctx.Renderer, f);
     }
 
     void DrawOverlay(Rectangle scr)

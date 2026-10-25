@@ -9,11 +9,12 @@
 /compress:False
 
 #-------------------------------- References --------------------------------#
+/reference:../../GrimmsVenture.Content.Pipeline/bin/Debug/net8.0/GrimmsVenture.Content.Pipeline.dll
 
 
 #---------------------------------- Content ---------------------------------#
 
 #begin Models/Grimm.fbx
 /importer:FbxImporter
-/processor:ModelProcessor
+/processor:SkinnedModelProcessor
 /build:Models/Grimm.fbx
