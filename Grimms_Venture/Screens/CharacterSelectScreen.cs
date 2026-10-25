@@ -19,6 +19,7 @@ public sealed class CharacterSelectScreen : Screen
         public float PrevMoveX;
         public Fighter Preview = null!;
         public Fighter Dummy = null!;
+        public SkinnedFighterRenderer? Skin;   // modelo 3D animado (null = boneco procedural)
         public readonly Camera Cam = new();
     }
 
@@ -45,6 +46,14 @@ public sealed class CharacterSelectScreen : Screen
         // o "oponente" fica atrás da câmera, então o preview encara a tela
         s.Preview = new Fighter(s.Index, ch, Vector3.Zero, Vector3.Backward, c);
         s.Dummy = new Fighter(1 - s.Index, ch, new Vector3(0f, 0f, 30f), Vector3.Forward);
+
+        // modelo 3D do personagem escolhido (o Content cacheia o Model; cada slot tem seu AnimationPlayer)
+        s.Skin = null;
+        if (ch.ModelAsset != null)
+        {
+            var skin = new SkinnedFighterRenderer(Ctx.Game.Content, ch.ModelAsset);
+            if (skin.Available) s.Skin = skin;
+        }
     }
 
     // ================================================================== update
@@ -95,6 +104,10 @@ public sealed class CharacterSelectScreen : Screen
             s.PrevMoveX = p.Move.X;
             s.Preview.Update(dt, none, s.Dummy, _combat); // só para animar o idle
         }
+
+        // anima o modelo 3D no idle (o preview nao recebe input, entao o estado e sempre Idle)
+        foreach (Slot s in _slots)
+            s.Skin?.Update(gt, s.Preview);
 
         if (_startTimer < 0f)
         {
@@ -147,7 +160,10 @@ public sealed class CharacterSelectScreen : Screen
         var r = Ctx.Renderer;
         r.BeginScene(s.Cam, vp.AspectRatio);
         Ctx.Arena.DrawOpaque(r);
-        FighterRenderer.DrawBody(r, s.Preview);
+        if (s.Skin is { Available: true })
+            s.Skin.Draw(s.Cam, vp.AspectRatio);
+        else
+            FighterRenderer.DrawBody(r, s.Preview);
 
         r.BeginTransparent();
         FighterRenderer.DrawEffects(r, s.Preview, false);
