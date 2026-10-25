@@ -39,6 +39,7 @@ public sealed class KeyboardInputSource : IInputSource
         _name = name;
     }
 
+    public KeyboardMap Map => _map;
     public string Name => _name;
     public bool IsAvailable => true;
     public bool AnyPressed { get; private set; }

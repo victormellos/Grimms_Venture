@@ -10,6 +10,8 @@ public sealed class CharacterDefinition
     public Color AltColor { get; init; } = Color.White;   // cor do P2 (permite partida espelhada)
     public FighterStats Stats { get; init; } = new();
     public AttackSet Attacks { get; init; } = new();
+    public string LightLabel { get; init; } = "LIGHT ATTACK";   // texto na dica de controles
+    public string HeavyLabel { get; init; } = "HEAVY ATTACK";
     public string? ModelAsset { get; init; }              // ex.: "Models/Grimm" (null = boneco procedural)
 }
 
@@ -21,6 +23,8 @@ public static class Roster
         Name = "GRIMM",
         Tagline = "HEAVYWEIGHT BRAWLER",
         ModelAsset = "Models/Grimm",
+        LightLabel = "PUNCH COMBO",
+        HeavyLabel = "KICK",
         Color = new Color(220, 70, 50),
         AltColor = new Color(50, 180, 200),
         Stats = new FighterStats

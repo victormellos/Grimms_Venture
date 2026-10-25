@@ -1,3 +1,4 @@
+using GrimmsVenture.UI;
 using GrimmsVenture.Combat;
 using GrimmsVenture.Core;
 using GrimmsVenture.Rendering;
@@ -27,12 +28,14 @@ public sealed class VersusScreen : Screen
     readonly CharacterDefinition _char2;
     SkinnedFighterRenderer? _skin1;   // modelo 3D do P1 (null = boneco procedural)
     SkinnedFighterRenderer? _skin2;   // modelo 3D do P2
+    readonly ControlsHud _controlsHud;
 
     public VersusScreen(GameContext ctx, ViewMode view, CharacterDefinition char1, CharacterDefinition char2) : base(ctx)
     {
         _view = view;
         _char1 = char1;
         _char2 = char2;
+        _controlsHud = new ControlsHud(Ctx.Ui);
         _combat.ShakeRequested += _cams.AddShake;
         _skin1 = LoadSkin(_char1);
         _skin2 = LoadSkin(_char2);
@@ -206,6 +209,7 @@ public sealed class VersusScreen : Screen
         sb.Begin(samplerState: SamplerState.PointClamp);
 
         Ctx.Hud.DrawFight(sb, scr, _p1, _p2);
+        _controlsHud.Draw(sb, scr, _char1, _char2, Ctx.Input);
 
         // divisória da tela dividida
         if (_view == ViewMode.SplitVertical)

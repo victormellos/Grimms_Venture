@@ -48,6 +48,19 @@ public sealed class InputManager
 
     public bool SlotJoined(int slot) => _claimed[slot] >= 0;
 
+    /// <summary>Dispositivo do slot (teclado + mapa, ou gamepad + estilo) para mostrar os controles certos.</summary>
+    public DeviceInfo GetDevice(int slot)
+    {
+        int d = _claimed[slot];
+        if (d < 0) return default;
+        return _devices[d] switch
+        {
+            KeyboardInputSource k => new DeviceInfo(DeviceKind.Keyboard, PadStyle.Xbox, k.Map),
+            GamepadInputSource g => new DeviceInfo(DeviceKind.Gamepad, g.Style, null),
+            _ => default
+        };
+    }
+
     /// <summary>P1 (slot 0) entra com qualquer botão; P2 (slot 1) entra com START.</summary>
     public bool TryJoin(int slot)
     {

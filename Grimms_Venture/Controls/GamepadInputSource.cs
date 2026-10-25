@@ -21,7 +21,26 @@ public sealed class GamepadInputSource : IInputSource
     readonly PlayerIndex _index;
     GamePadState _prev, _cur;
 
+    bool _wasConnected;
+
     public GamepadInputSource(PlayerIndex index) => _index = index;
+
+    /// <summary>PlayStation ou Xbox/outro (define os rotulos dos botoes na tela).</summary>
+    public PadStyle Style { get; private set; } = PadStyle.Xbox;
+
+    static PadStyle Detect(GamePadCapabilities caps)
+    {
+        // GUID do SDL: vendor em little-endian nos chars 8..11 (Sony = 0x054C -> "4c05")
+        string id = caps.Identifier ?? "";
+        if (id.Length >= 12 && id.Substring(8, 4).Equals("4c05", StringComparison.OrdinalIgnoreCase))
+            return PadStyle.PlayStation;
+
+        string n = (caps.DisplayName ?? "").ToLowerInvariant();
+        string[] sony = { "playstation", "dualshock", "dualsense", "sony", "ps3", "ps4", "ps5", "wireless controller" };
+        foreach (string t in sony)
+            if (n.Contains(t)) return PadStyle.PlayStation;
+        return PadStyle.Xbox;
+    }
 
     public string Name => $"GAMEPAD {(int)_index + 1}";
     public bool IsAvailable => _cur.IsConnected;
@@ -39,7 +58,8 @@ public sealed class GamepadInputSource : IInputSource
         JoinPressed = false;
 
         var input = new PlayerInput();
-        if (!_cur.IsConnected) return input;
+        if (!_cur.IsConnected) { _wasConnected = false; return input; }
+        if (!_wasConnected) { _wasConnected = true; Style = Detect(GamePad.GetCapabilities(_index)); }
 
         foreach (Buttons b in Watched)
             if (Pressed(b)) { AnyPressed = true; break; }
