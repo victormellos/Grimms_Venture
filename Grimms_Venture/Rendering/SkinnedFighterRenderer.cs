@@ -25,6 +25,7 @@ public sealed class SkinnedFighterRenderer
     readonly AnimationPlayer _player = null!;
     readonly GraphicsDevice _gd = null!;
 
+    Texture2D _white = null!; // SkinnedEffect sempre amostra textura: sem ela o modelo fica preto
     float _fitScale = 1f;
     float _footOffset = 0f;
     Matrix _root = Matrix.Identity;
@@ -39,10 +40,34 @@ public sealed class SkinnedFighterRenderer
             _skin = (_model.Tag as SkinningData)
                 ?? throw new Exception("Model sem SkinningData no Tag (processor errado no .mgcb?)");
             _player = new AnimationPlayer(_skin);
-            _gd = ((IGraphicsDeviceService)content.ServiceProvider
-                .GetService(typeof(IGraphicsDeviceService))).GraphicsDevice;
+            _gd = (content.ServiceProvider.GetService(typeof(IGraphicsDeviceService)) as IGraphicsDeviceService)
+                    ?.GraphicsDevice
+                ?? throw new Exception("IGraphicsDeviceService indisponivel no ContentManager");
 
-            if (Measure(_model, out Vector3 min, out Vector3 max))
+            _white = new Texture2D(_gd, 1, 1);
+            _white.SetData(new[] { Color.White });
+
+            // Mede o modelo JA SKINADO (Idle, t=0, sem raiz): independe da escala do bind.
+            Vector3 min, max;
+            bool ok = Measure(_model, out min, out max);
+            if (ok) Console.WriteLine($"[Grimm] bind  Y=[{min.Y:F2}..{max.Y:F2}] X=[{min.X:F2}..{max.X:F2}]");
+            Console.WriteLine($"[Grimm] ossos={_skin.BindPose.Count} clips=[{string.Join(", ", _skin.AnimationClips.Keys)}]");
+            AnimationClip? idle = _skin.GetClip("Idle");
+            if (idle == null)
+                foreach (var c in _skin.AnimationClips.Values) { idle = c; break; }
+            if (idle != null)
+            {
+                _player.StartClip(idle, true);
+                _player.Update(TimeSpan.Zero, Matrix.Identity);
+                if (MeasureSkinned(_model, _player.GetSkinTransforms(), out Vector3 smin, out Vector3 smax)
+                    && smax.Y - smin.Y > 1e-4f)
+                {
+                    Console.WriteLine($"[Grimm] skin  Y=[{smin.Y:F2}..{smax.Y:F2}] X=[{smin.X:F2}..{smax.X:F2}]");
+                    min = smin; max = smax; ok = true;
+                }
+            }
+
+            if (ok)
             {
                 Vector3 size = max - min;
                 float h = MathF.Max(size.Y, 0.0001f);
@@ -93,6 +118,62 @@ public sealed class SkinnedFighterRenderer
                                     BitConverter.ToSingle(data, p + 8));
                 min = Vector3.Min(min, v);
                 max = Vector3.Max(max, v);
+                any = true;
+            }
+        }
+        return any;
+    }
+
+    // Igual ao Measure, mas aplicando as matrizes de pele (CPU skinning) em cada vertice.
+    static bool MeasureSkinned(Model model, Matrix[] skin, out Vector3 min, out Vector3 max)
+    {
+        min = new Vector3(float.MaxValue);
+        max = new Vector3(float.MinValue);
+        bool any = false;
+
+        foreach (ModelMesh mesh in model.Meshes)
+        foreach (ModelMeshPart part in mesh.MeshParts)
+        {
+            VertexBuffer vb = part.VertexBuffer;
+            VertexDeclaration decl = vb.VertexDeclaration;
+            int stride = decl.VertexStride, posOff = -1, idxOff = -1, wOff = -1;
+            VertexElementFormat idxFmt = VertexElementFormat.Byte4, wFmt = VertexElementFormat.Vector4;
+            foreach (VertexElement e in decl.GetVertexElements())
+            {
+                if (e.VertexElementUsage == VertexElementUsage.Position) posOff = e.Offset;
+                else if (e.VertexElementUsage == VertexElementUsage.BlendIndices) { idxOff = e.Offset; idxFmt = e.VertexElementFormat; }
+                else if (e.VertexElementUsage == VertexElementUsage.BlendWeight) { wOff = e.Offset; wFmt = e.VertexElementFormat; }
+            }
+            if (posOff < 0 || idxOff < 0 || wOff < 0) continue;
+
+            var data = new byte[vb.VertexCount * stride];
+            vb.GetData(data);
+            for (int i = part.VertexOffset; i < part.VertexOffset + part.NumVertices; i++)
+            {
+                int b = i * stride;
+                var pos = new Vector3(BitConverter.ToSingle(data, b + posOff),
+                                      BitConverter.ToSingle(data, b + posOff + 4),
+                                      BitConverter.ToSingle(data, b + posOff + 8));
+                Vector3 acc = Vector3.Zero;
+                float total = 0f;
+                for (int k = 0; k < 4; k++)
+                {
+                    int idx = idxFmt == VertexElementFormat.Short4
+                        ? BitConverter.ToUInt16(data, b + idxOff + k * 2)
+                        : data[b + idxOff + k];
+                    float w = wFmt == VertexElementFormat.Vector4
+                        ? BitConverter.ToSingle(data, b + wOff + k * 4)
+                        : wFmt == VertexElementFormat.NormalizedShort4
+                            ? BitConverter.ToInt16(data, b + wOff + k * 2) / 32767f
+                            : data[b + wOff + k] / 255f;
+                    if (w <= 0f || idx >= skin.Length) continue;
+                    acc += Vector3.Transform(pos, skin[idx]) * w;
+                    total += w;
+                }
+                if (total <= 0f) continue;
+                acc /= total;
+                min = Vector3.Min(min, acc);
+                max = Vector3.Max(max, acc);
                 any = true;
             }
         }
@@ -160,6 +241,7 @@ public sealed class SkinnedFighterRenderer
             {
                 if (effect is SkinnedEffect skinned)
                 {
+                    if (skinned.Texture == null) skinned.Texture = _white;
                     skinned.EnableDefaultLighting();
                     skinned.PreferPerPixelLighting = true;
                     skinned.SetBoneTransforms(bones);
