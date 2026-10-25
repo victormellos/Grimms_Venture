@@ -56,7 +56,7 @@ public class SkinnedModelProcessor : ModelProcessor
         foreach (BoneContent bone in bones)
         {
             bindPose.Add(bone.Transform);
-            inverseBindPose.Add(Matrix.Invert(bone.AbsoluteTransform));
+            inverseBindPose.Add(Matrix.Invert(bone.Transform));
             BoneContent parent = bone.Parent as BoneContent;
             hierarchy.Add(parent != null ? bones.IndexOf(parent) : -1);
         }

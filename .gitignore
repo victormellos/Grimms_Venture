@@ -25,3 +25,4 @@ obj/
 # sistema
 .DS_Store
 Thumbs.db
+Logs/

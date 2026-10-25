@@ -18,7 +18,7 @@ public sealed class SkinnedFighterRenderer
     // ================== CALIBRACAO VISUAL ==================
     const float TargetHeight = 2.3f;   // altura do boneco antigo (pes em 0, topo da cabeca 2.28)
     const float HeightMultiplier = 1f; // ajuste fino: 1.1f = 10% maior
-    const float Yaw = 0f;              // modelo de costas? troque para MathHelper.Pi
+    const float Yaw = MathHelper.Pi;              // modelo de costas? troque para MathHelper.Pi
 
     readonly Model _model = null!;
     readonly SkinningData _skin = null!;
