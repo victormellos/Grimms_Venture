@@ -7,7 +7,7 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace GrimmsVenture.Screens;
 
-/// <summary>Partida versus local 1v1: intro, luta, fim de round, pausa. Câmera compartilhada ou tela dividida.</summary>
+/// <summary>Partida versus local 1v1: intro, luta, fim de round, pausa. Camera compartilhada ou tela dividida.</summary>
 public sealed class VersusScreen : Screen
 {
     enum Phase { Intro, Fight, RoundOver, Paused }
@@ -42,11 +42,14 @@ public sealed class VersusScreen : Screen
         StartRound();
     }
 
-    // Por enquanto só o GRIMM tem FBX; quem não tem, cai no boneco procedural.
+    // Personagem com ModelAsset carrega seu modelo 3D; sem ModelAsset (ou se
+    // o modelo falhar ao carregar) = boneco procedural. Nada hardcoded aqui.
     SkinnedFighterRenderer? LoadSkin(CharacterDefinition c)
-        => c.Name == "GRIMM"
-            ? new SkinnedFighterRenderer(Ctx.Game.Content, "Models/Grimm")
-            : null;
+    {
+        if (c.ModelAsset == null) return null;
+        var skin = new SkinnedFighterRenderer(Ctx.Game.Content, c.ModelAsset, c);
+        return skin.Available ? skin : null;
+    }
 
     void StartRound()
     {
@@ -81,7 +84,7 @@ public sealed class VersusScreen : Screen
             case Phase.Paused:
                 if (input.PauseRequested) _phase = _resumePhase;
                 else if (input.MenuBack) { Ctx.Screens.Set(new TitleScreen(Ctx)); return; }
-                return; // congela tudo (inclui câmera)
+                return; // congela tudo (inclui camera)
 
             case Phase.Intro:
                 _phaseTime += dt;
@@ -119,7 +122,7 @@ public sealed class VersusScreen : Screen
 
         _combat.Particles.Update(dt);
 
-        if (_combat.HitStop > 0f)   // hit-stop: congela a lógica por alguns frames no impacto
+        if (_combat.HitStop > 0f)   // hit-stop: congela a logica por alguns frames no impacto
         {
             _combat.TickHitStop(dt);
             return;
@@ -190,7 +193,7 @@ public sealed class VersusScreen : Screen
         r.EndTransparent();
     }
 
-    // modelo 3D animado se o personagem tiver; senão cai no boneco procedural
+    // modelo 3D animado se o personagem tiver; senao cai no boneco procedural
     void DrawFighter(Viewport vp, Camera cam, SkinnedFighterRenderer? skin, Fighter f)
     {
         if (skin is { Available: true })
@@ -211,7 +214,7 @@ public sealed class VersusScreen : Screen
         Ctx.Hud.DrawFight(sb, scr, _p1, _p2);
         _controlsHud.Draw(sb, scr, _char1, _char2, Ctx.Input);
 
-        // divisória da tela dividida
+        // divisoria da tela dividida
         if (_view == ViewMode.SplitVertical)
             ui.Rect(sb, new Rectangle(scr.Width / 2 - 2, 0, 4, scr.Height), Color.Black);
         else if (_view == ViewMode.SplitHorizontal)

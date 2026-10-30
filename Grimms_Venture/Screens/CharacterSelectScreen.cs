@@ -7,8 +7,8 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace GrimmsVenture.Screens;
 
-/// <summary>Seleção de personagem 1v1: cada jogador "entra" apertando um botão
-/// (P1: qualquer botão | P2: START) e depois escolhe/confirma o personagem.</summary>
+/// <summary>Selecao de personagem 1v1: cada jogador "entra" apertando um botao
+/// (P1: qualquer botao | P2: START) e depois escolhe/confirma o personagem.</summary>
 public sealed class CharacterSelectScreen : Screen
 {
     sealed class Slot
@@ -43,7 +43,7 @@ public sealed class CharacterSelectScreen : Screen
     {
         CharacterDefinition ch = Roster.All[s.Choice];
         Color c = s.Index == 0 ? ch.Color : ch.AltColor;
-        // o "oponente" fica atrás da câmera, então o preview encara a tela
+        // o "oponente" fica atras da camera, entao o preview encara a tela
         s.Preview = new Fighter(s.Index, ch, Vector3.Zero, Vector3.Backward, c);
         s.Dummy = new Fighter(1 - s.Index, ch, new Vector3(0f, 0f, 30f), Vector3.Forward);
 
@@ -51,7 +51,7 @@ public sealed class CharacterSelectScreen : Screen
         s.Skin = null;
         if (ch.ModelAsset != null)
         {
-            var skin = new SkinnedFighterRenderer(Ctx.Game.Content, ch.ModelAsset);
+            var skin = new SkinnedFighterRenderer(Ctx.Game.Content, ch.ModelAsset, ch);
             if (skin.Available) s.Skin = skin;
         }
     }
@@ -102,7 +102,7 @@ public sealed class CharacterSelectScreen : Screen
             }
 
             s.PrevMoveX = p.Move.X;
-            s.Preview.Update(dt, none, s.Dummy, _combat); // só para animar o idle
+            s.Preview.Update(dt, none, s.Dummy, _combat); // so para animar o idle
         }
 
         // anima o modelo 3D no idle (o preview nao recebe input, entao o estado e sempre Idle)

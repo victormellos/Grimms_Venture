@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Xna.Framework;
 
 namespace GrimmsVenture.Combat;
@@ -13,37 +16,55 @@ public sealed class CharacterDefinition
     public string LightLabel { get; init; } = "LIGHT ATTACK";   // texto na dica de controles
     public string HeavyLabel { get; init; } = "HEAVY ATTACK";
     public string? ModelAsset { get; init; }              // ex.: "Models/Grimm" (null = boneco procedural)
+
+    /// <summary>
+    /// Estado/golpe -> nome da action no FBX. Raramente precisa mudar:
+    /// so se o teu modelo tiver animacoes com nomes diferentes do padrao.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> Clips { get; init; } = ClipNames.Default;
 }
 
-/// <summary>Elenco. Para adicionar personagens, é só incluir em All.</summary>
+/// <summary>
+/// Mapa padrao estado/golpe -> clip do FBX. Se o Blender nomear as actions
+/// assim, nenhuma ficha precisa tocar em Clips.
+/// </summary>
+public static class ClipNames
+{
+    public static readonly IReadOnlyDictionary<string, string> Default = new Dictionary<string, string>
+    {
+        // estados
+        ["Idle"]    = "Idle",
+        ["Walk"]    = "Walk",
+        ["Air"]     = "Air",
+        ["Guard"]   = "Guard",
+        ["Charge"]  = "Charge",
+        ["HitStun"] = "HitStun",
+        ["KO"]      = "KO",
+        // golpes (chave = Name do AttackData)
+        ["Jab"]      = "Punch1",
+        ["Straight"] = "Punch2",
+        ["Cross"]    = "Punch3",
+        ["Kick"]     = "Kick",
+        ["Light 1"]  = "Punch1",
+        ["Light 2"]  = "Punch2",
+        ["Light 3"]  = "Punch3",
+        ["Heavy"]    = "Kick",
+        ["Ki Blast"] = "Kick"
+    };
+}
+
+/// <summary>
+/// Elenco do jogo. Personagem novo = 1 arquivo em Combat/Characters/ + 1 linha aqui.
+/// </summary>
 public static class Roster
 {
-    public static readonly CharacterDefinition Grimm = new()
+    public static readonly IReadOnlyList<CharacterDefinition> All = new[]
     {
-        Name = "GRIMM",
-        Tagline = "HEAVYWEIGHT BRAWLER",
-        ModelAsset = "Models/Grimm",
-        LightLabel = "PUNCH COMBO",
-        HeavyLabel = "KICK",
-        Color = new Color(220, 70, 50),
-        AltColor = new Color(50, 180, 200),
-        Stats = new FighterStats
-        {
-            MaxHealth = 2000f,       // DOBRO do padrão (1000)
-            CanFly = false,          // pulos grandes + pulo duplo no lugar de voar
-            Gravity = 26f,
-            JumpSpeed = 13f,
-            MaxAirJumps = 1,         // pulo duplo
-            AirJumpSpeed = 11f,
-            HasKi = false            // sem ki: sem carregar, sem ki blast, dash/guarda de graça
-        },
-        Attacks = new AttackSet
-        {
-            Light = GrimmMoveset.Punches,
-            Heavy = GrimmMoveset.Kick,
-            KiBlast = null           // ele NÃO tem ki blast
-        }
+        Grimm.Def,
+        Nova.Def
     };
 
-    public static readonly IReadOnlyList<CharacterDefinition> All = new[] { Grimm };
+    public static CharacterDefinition ByName(string name)
+        => All.FirstOrDefault(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
+           ?? All[0];
 }

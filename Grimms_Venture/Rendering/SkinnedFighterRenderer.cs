@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using GrimmsVenture.Animation;
 using GrimmsVenture.Combat;
 using Microsoft.Xna.Framework;
@@ -9,21 +10,22 @@ namespace GrimmsVenture.Rendering;
 
 /// <summary>
 /// Desenha um Fighter com o modelo FBX animado (SkinnedEffect),
-/// mapeando FighterState -> clip. Cai no boneco procedural se falhar.
-/// A escala e calculada sozinha: o modelo e medido ao carregar e ajustado
-/// para TargetHeight (mesma altura do boneco procedural antigo, ~2.3).
+/// mapeando FighterState -> clip (mapa vem da ficha do personagem).
+/// Cai no boneco procedural se falhar. A escala e calculada sozinha:
+/// o modelo e medido ao carregar e ajustado para TargetHeight (~2.3).
 /// </summary>
 public sealed class SkinnedFighterRenderer
 {
     // ================== CALIBRACAO VISUAL ==================
     const float TargetHeight = 2.3f;   // altura do boneco antigo (pes em 0, topo da cabeca 2.28)
     const float HeightMultiplier = 1f; // ajuste fino: 1.1f = 10% maior
-    const float Yaw = MathHelper.Pi;              // modelo de costas? troque para MathHelper.Pi
+    const float Yaw = MathHelper.Pi;   // modelo de costas? troque para MathHelper.Pi
 
     readonly Model _model = null!;
     readonly SkinningData _skin = null!;
     readonly AnimationPlayer _player = null!;
     readonly GraphicsDevice _gd = null!;
+    readonly IReadOnlyDictionary<string, string> _clips = ClipNames.Default;
 
     Texture2D _white = null!; // SkinnedEffect sempre amostra textura: sem ela o modelo fica preto
     float _fitScale = 1f;
@@ -32,8 +34,10 @@ public sealed class SkinnedFighterRenderer
 
     public bool Available { get; private set; }
 
-    public SkinnedFighterRenderer(ContentManager content, string asset)
+    public SkinnedFighterRenderer(ContentManager content, string asset, CharacterDefinition? character = null)
     {
+        string tag = "[" + (character?.Name ?? asset) + "]";
+        if (character != null) _clips = character.Clips;
         try
         {
             _model = content.Load<Model>(asset);
@@ -50,9 +54,10 @@ public sealed class SkinnedFighterRenderer
             // Mede o modelo JA SKINADO (Idle, t=0, sem raiz): independe da escala do bind.
             Vector3 min, max;
             bool ok = Measure(_model, out min, out max);
-            if (ok) Console.WriteLine($"[Grimm] bind  Y=[{min.Y:F2}..{max.Y:F2}] X=[{min.X:F2}..{max.X:F2}]");
-            Console.WriteLine($"[Grimm] ossos={_skin.BindPose.Count} clips=[{string.Join(", ", _skin.AnimationClips.Keys)}]");
-            AnimationClip? idle = _skin.GetClip("Idle");
+            if (ok) Console.WriteLine($"{tag} bind  Y=[{min.Y:F2}..{max.Y:F2}] X=[{min.X:F2}..{max.X:F2}]");
+            Console.WriteLine($"{tag} ossos={_skin.BindPose.Count} clips=[{string.Join(", ", _skin.AnimationClips.Keys)}]");
+            string idleName = _clips.TryGetValue("Idle", out string? mappedIdle) ? mappedIdle : "Idle";
+            AnimationClip? idle = _skin.GetClip(idleName);
             if (idle == null)
                 foreach (var c in _skin.AnimationClips.Values) { idle = c; break; }
             if (idle != null)
@@ -62,7 +67,7 @@ public sealed class SkinnedFighterRenderer
                 if (MeasureSkinned(_model, _player.GetSkinTransforms(), out Vector3 smin, out Vector3 smax)
                     && smax.Y - smin.Y > 1e-4f)
                 {
-                    Console.WriteLine($"[Grimm] skin  Y=[{smin.Y:F2}..{smax.Y:F2}] X=[{smin.X:F2}..{smax.X:F2}]");
+                    Console.WriteLine($"{tag} skin  Y=[{smin.Y:F2}..{smax.Y:F2}] X=[{smin.X:F2}..{smax.X:F2}]");
                     min = smin; max = smax; ok = true;
                 }
             }
@@ -73,18 +78,18 @@ public sealed class SkinnedFighterRenderer
                 float h = MathF.Max(size.Y, 0.0001f);
                 _fitScale = TargetHeight * HeightMultiplier / h;
                 _footOffset = -min.Y;
-                Console.WriteLine($"[Grimm] extents X={size.X:F3} Y={size.Y:F3} Z={size.Z:F3}  minY={min.Y:F3} -> escala={_fitScale:F5}");
+                Console.WriteLine($"{tag} extents X={size.X:F3} Y={size.Y:F3} Z={size.Z:F3}  minY={min.Y:F3} -> escala={_fitScale:F5}");
             }
             else
             {
-                Console.WriteLine("[Grimm] nao consegui medir o modelo; escala 0.01 de fallback");
+                Console.WriteLine($"{tag} nao consegui medir o modelo; escala 0.01 de fallback");
                 _fitScale = 0.01f;
             }
             Available = true;
         }
         catch (Exception e)
         {
-            Console.WriteLine("[Grimm] falha ao carregar modelo: " + e.Message);
+            Console.WriteLine($"{tag} falha ao carregar modelo: " + e.Message);
             Available = false; // sem modelo: o jogo usa o boneco procedural
         }
     }
@@ -183,42 +188,34 @@ public sealed class SkinnedFighterRenderer
     public void Update(GameTime gt, Fighter f)
     {
         if (!Available) return;
-        ChooseClip(f, out string name, out bool loop);
+        ChooseClip(f, out string key, out bool loop);
 
-        AnimationClip? clip = _skin.GetClip(name);
+        // nome mapeado pela ficha do personagem; se o clip mapeado nao existir, tenta a chave direto
+        string name = _clips.TryGetValue(key, out string? mapped) ? mapped : key;
+        AnimationClip? clip = _skin.GetClip(name) ?? _skin.GetClip(key);
         if (clip != null) _player.StartClip(clip, loop);
 
         _root = RootMatrix(f);
         _player.Update(gt.ElapsedGameTime, _root);
     }
 
-    void ChooseClip(Fighter f, out string name, out bool loop)
+    // chave semantica (estado/golpe) -> o nome final vem do mapa da ficha
+    static void ChooseClip(Fighter f, out string key, out bool loop)
     {
-        name = "Idle";
-        loop = true;
+        loop = f.State != FighterState.Attacking
+            && f.State != FighterState.HitStun
+            && f.State != FighterState.KO;
 
-        switch (f.State)
+        key = f.State switch
         {
-            case FighterState.Attacking:
-                name = f.CurrentAttack?.Name switch
-                {
-                    "Jab"      => "Punch1",
-                    "Straight" => "Punch2",
-                    "Cross"    => "Punch3",
-                    "Kick"     => "Kick",
-                    _          => "Punch1"
-                };
-                loop = false;
-                break;
-
-            case FighterState.Guarding: name = "Guard"; break;
-            case FighterState.HitStun:  name = "HitStun"; loop = false; break;
-            case FighterState.KO:       name = "KO"; loop = false; break;
-            case FighterState.Dashing:  name = "Walk"; break;
-            default:
-                name = f.IsAirborne ? "Air" : f.State == FighterState.Moving ? "Walk" : "Idle";
-                break;
-        }
+            FighterState.Attacking => f.CurrentAttack?.Name ?? "Light 1",
+            FighterState.Guarding  => "Guard",
+            FighterState.Charging  => "Charge",
+            FighterState.HitStun   => "HitStun",
+            FighterState.KO        => "KO",
+            FighterState.Dashing   => "Walk",
+            _ => f.IsAirborne ? "Air" : f.State == FighterState.Moving ? "Walk" : "Idle"
+        };
     }
 
     Matrix RootMatrix(Fighter f)
